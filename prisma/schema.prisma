@@ -39,7 +39,7 @@ model Submission {
     submission_id          String   @id @default(uuid())
     user_id                String
     challenge_id           String
-    status                 String
+    status                 Boolean
     passed_test_case_value Int
     created_at             DateTime @default(now())
 
