@@ -1,6 +1,8 @@
 // src/index.ts
 import express from 'express';
 import dotenv from 'dotenv';
+import bodyParser from 'body-parser';
+import cors from 'cors';
 const { PrismaClient } = require('@prisma/client');
 require('express-async-errors');
 
@@ -8,6 +10,8 @@ dotenv.config();
 const app = express();
 const port = 8000;
 const prisma = new PrismaClient();
+app.use(cors());
+app.use(bodyParser.json());
 
 const CLIENT_ID = process.env.CLIENT_ID || "";
 const CLIENT_SECRET = process.env.CLIENT_SECRET || "";
@@ -64,7 +68,13 @@ const authMiddleware = async (req: express.Request, res: express.Response, next:
     if (!response.ok) {
         throw new CustomError('Failed to fetch user data');
     }
-
+    const githubId = (await response.json()).id;
+    const user = await prisma.user.findFirst({
+        where: {
+            github_id: githubId.toString()
+        }
+    });
+    req.body.userId = user.user_id;
     return next();
 }
 
@@ -114,8 +124,67 @@ app.get('/getUserData', async (req, res) => {
 });
 
 app.get('/getChallenges', authMiddleware, async (req, res) => {
+    const body = req.body;
+
+    if (body !== undefined) {
+        const filter = body.filter || "all";
+        const userId = body.userId;
+        if (filter === "completed") {
+            const challengesWithSubmissionsForUser = await prisma.challenge.findMany({
+                where: {
+                    Submissions: {
+                        some: {
+                            AND: [
+                                { user_id: userId }, // Filter submissions where the user_id is equal to the specified value
+                                { status: true } // Filter submissions where status is true
+                            ]
+                        }
+                    }
+                },
+                include: {
+                    Submissions: {
+                        where: {
+                            AND: [
+                                { user_id: userId }, // Filter submissions where the user_id is equal to the specified value
+                                { status: true } // Filter submissions where status is true
+                            ]
+                        }
+                    }
+                }
+            });
+            const jsonResponse: JsonResponse = {
+                success: true,
+                message: 'Challenges fetched successfully',
+                data: challengesWithSubmissionsForUser,
+            };
+            return res.json(jsonResponse);
+        }
+        if (filter === "incomplete") {
+            const challengesWithNoTrueSubmissions = await prisma.challenge.findMany({
+                where: {
+                    Submissions: {
+                        none: {
+                            status: true // Filter submissions where status is true
+                        }
+                    }
+                }
+            });
+            const jsonResponse: JsonResponse = {
+                success: true,
+                message: 'Challenges fetched successfully',
+                data: challengesWithNoTrueSubmissions,
+            };
+            return res.json(jsonResponse);
+        }
+    }
+
     const challanges = await prisma.challenge.findMany();
-    return res.json(challanges);
+    const jsonResponse: JsonResponse = {
+        success: true,
+        message: 'Challenges fetched successfully',
+        data: challanges,
+    };
+    return res.json(jsonResponse);
 });
 
 // Runner
