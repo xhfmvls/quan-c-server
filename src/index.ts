@@ -19,9 +19,17 @@ const REPO_PERSONAL_TOKEN = process.env.REPO_PERSONAL_TOKEN || "";
 
 // Types
 
+interface PaginationData {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+}
+
 interface JsonResponse {
     success: boolean;
     message: string;
+    paginationData?: any;
     data?: any;
 }
 
@@ -137,8 +145,8 @@ app.get('/getChallenges', authMiddleware, async (req, res) => {
                     Submissions: {
                         some: {
                             AND: [
-                                { user_id: userId }, // Filter submissions where the user_id is equal to the specified value
-                                { status: true } // Filter submissions where status is true
+                                { user_id: userId },
+                                { status: true }
                             ]
                         }
                     }
@@ -147,8 +155,8 @@ app.get('/getChallenges', authMiddleware, async (req, res) => {
                     Submissions: {
                         where: {
                             AND: [
-                                { user_id: userId }, // Filter submissions where the user_id is equal to the specified value
-                                { status: true } // Filter submissions where status is true
+                                { user_id: userId },
+                                { status: true }
                             ]
                         }
                     }
@@ -159,9 +167,30 @@ app.get('/getChallenges', authMiddleware, async (req, res) => {
                     created_at: 'asc',
                 }]
             });
+            const count = await prisma.challenge.count({
+                where: {
+                    Submissions: {
+                        some: {
+                            AND: [
+                                { user_id: userId },
+                                { status: true }
+                            ]
+                        }
+                    }
+                }
+            });
+
+            const paginationData: PaginationData = {
+                page: page + 1,
+                limit: limit,
+                total: count,
+                totalPages: Math.ceil(count / limit),
+            };
+
             const jsonResponse: JsonResponse = {
                 success: true,
                 message: 'Challenges fetched successfully',
+                paginationData: paginationData,
                 data: challengesWithSubmissionsForUser,
             };
             return res.json(jsonResponse);
@@ -171,7 +200,7 @@ app.get('/getChallenges', authMiddleware, async (req, res) => {
                 where: {
                     Submissions: {
                         none: {
-                            status: true // Filter submissions where status is true
+                            status: true
                         }
                     }
                 },
@@ -181,9 +210,27 @@ app.get('/getChallenges', authMiddleware, async (req, res) => {
                     created_at: 'asc',
                 }]
             });
+            const count = await prisma.challenge.count({
+                where: {
+                    Submissions: {
+                        none: {
+                            status: true
+                        }
+                    }
+                }
+            });
+
+            const paginationData: PaginationData = {
+                page: page + 1,
+                limit: limit,
+                total: count,
+                totalPages: Math.ceil(count / limit),
+            };
+
             const jsonResponse: JsonResponse = {
                 success: true,
                 message: 'Challenges fetched successfully',
+                paginationData: paginationData,
                 data: challengesWithNoTrueSubmissions,
             };
             return res.json(jsonResponse);
@@ -197,9 +244,18 @@ app.get('/getChallenges', authMiddleware, async (req, res) => {
             created_at: 'asc',
         }]
     });
+    const count = await prisma.challenge.count();
+    const paginationData: PaginationData = {
+        page: page + 1,
+        limit: limit,
+        total: count,
+        totalPages: Math.ceil(count / limit),
+    };
+
     const jsonResponse: JsonResponse = {
         success: true,
         message: 'Challenges fetched successfully',
+        paginationData: paginationData,
         data: challanges,
     };
     return res.json(jsonResponse);
