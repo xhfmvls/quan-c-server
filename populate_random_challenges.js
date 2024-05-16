@@ -16,6 +16,10 @@ function getRandomPoints(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function main() {
     var sum = []
     for (var i = 0; i < 113; i++) {
@@ -29,10 +33,16 @@ async function main() {
         }
 
         sum.push(data)
+
+        await prisma.challenge.create({
+            data: data
+        });
+
+        await sleep(100);
     }
-    await prisma.challenge.createMany({
-        data: sum
-    });
+    // await prisma.challenge.createMany({
+    //     data: sum
+    // });
 }
 
 main()
