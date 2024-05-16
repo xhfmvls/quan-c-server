@@ -131,7 +131,7 @@ app.get('/getUserData', async (req, res) => {
         });
 });
 
-app.get('/getChallenges', authMiddleware, async (req, res) => {
+app.post('/getChallenges', authMiddleware, async (req, res) => {
     const body = req.body;
     const page = body.page - 1 || 0;
     const limit = 10;
