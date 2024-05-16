@@ -125,6 +125,8 @@ app.get('/getUserData', async (req, res) => {
 
 app.get('/getChallenges', authMiddleware, async (req, res) => {
     const body = req.body;
+    const page = body.page - 1 || 0;
+    const limit = 10;
 
     if (body !== undefined) {
         const filter = body.filter || "all";
@@ -150,7 +152,12 @@ app.get('/getChallenges', authMiddleware, async (req, res) => {
                             ]
                         }
                     }
-                }
+                },
+                skip: page * limit,
+                take: limit,
+                orderBy: [{
+                    created_at: 'asc',
+                }]
             });
             const jsonResponse: JsonResponse = {
                 success: true,
@@ -167,7 +174,12 @@ app.get('/getChallenges', authMiddleware, async (req, res) => {
                             status: true // Filter submissions where status is true
                         }
                     }
-                }
+                },
+                skip: page * limit,
+                take: limit,
+                orderBy: [{
+                    created_at: 'asc',
+                }]
             });
             const jsonResponse: JsonResponse = {
                 success: true,
@@ -178,7 +190,13 @@ app.get('/getChallenges', authMiddleware, async (req, res) => {
         }
     }
 
-    const challanges = await prisma.challenge.findMany();
+    const challanges = await prisma.challenge.findMany({
+        skip: page * limit,
+        take: limit,
+        orderBy: [{
+            created_at: 'asc',
+        }]
+    });
     const jsonResponse: JsonResponse = {
         success: true,
         message: 'Challenges fetched successfully',
