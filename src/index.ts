@@ -19,6 +19,21 @@ const REPO_PERSONAL_TOKEN = process.env.REPO_PERSONAL_TOKEN || "";
 
 // Types
 
+interface Challenge {
+    challenge_id: string;
+    challenge_title: string;
+    Tagassign: Tagassign[]; // Array of Tagassign objects
+}
+
+interface Tagassign {
+    Tag: Tag; // Related Tag object
+}
+
+interface Tag {
+    tag_id: string;
+    tag_name: string;
+}
+
 interface PaginationData {
     page: number;
     limit: number;
@@ -235,6 +250,15 @@ app.post('/getChallenges', authMiddleware, async (req, res) => {
             },
         });
 
+        const result = challengesWithSubmissionsForUser.map((challenge: Challenge) => ({
+            challenge_id: challenge.challenge_id,
+            challenge_title: challenge.challenge_title,
+            tags: challenge.Tagassign.slice(0, 3).map((tagAssign) => ({ // Limit to first 3 tags
+                tag_id: tagAssign.Tag.tag_id,
+                tag_name: tagAssign.Tag.tag_name.toLowerCase(),
+            })),
+        }));
+
         const paginationData: PaginationData = {
             page: page + 1,
             limit: limit,
@@ -246,7 +270,7 @@ app.post('/getChallenges', authMiddleware, async (req, res) => {
             success: true,
             message: 'Challenges fetched successfully',
             paginationData: paginationData,
-            data: challengesWithSubmissionsForUser,
+            data: result,
         };
         return res.json(jsonResponse);
     }
@@ -337,6 +361,15 @@ app.post('/getChallenges', authMiddleware, async (req, res) => {
     });
 
 
+    const result = challengesWithNoTrueSubmissions.map((challenge: Challenge) => ({
+        challenge_id: challenge.challenge_id,
+        challenge_title: challenge.challenge_title,
+        tags: challenge.Tagassign.slice(0, 3).map((tagAssign) => ({ // Limit to first 3 tags
+            tag_id: tagAssign.Tag.tag_id,
+            tag_name: tagAssign.Tag.tag_name.toLowerCase(),
+        })),
+    }));
+
     const paginationData: PaginationData = {
         page: page + 1,
         limit: limit,
@@ -348,7 +381,7 @@ app.post('/getChallenges', authMiddleware, async (req, res) => {
         success: true,
         message: 'Challenges fetched successfully',
         paginationData: paginationData,
-        data: challengesWithNoTrueSubmissions,
+        data: result,
     };
     return res.json(jsonResponse);
 });
