@@ -137,46 +137,102 @@ app.post('/getChallenges', authMiddleware, async (req, res) => {
     const limit = 10;
     const userId = body.userId;
     const filter = body.filter || "";
+    const search = body.search || "";
+    const lowerInput = search.toLowerCase();
 
     if (filter === "completed") {
         const challengesWithSubmissionsForUser = await prisma.challenge.findMany({
             where: {
-                Submissions: {
-                    some: {
-                        AND: [
-                            { user_id: userId },
-                            { status: true }
-                        ]
-                    }
-                }
+                AND: [
+                    {
+                        Submissions: {
+                            some: {
+                                AND: [
+                                    { user_id: userId },
+                                    { status: true },
+                                ],
+                            },
+                        },
+                    },
+                    {
+                        OR: [
+                            {
+                                // Search by tags
+                                Tagassign: {
+                                    some: {
+                                        Tag: {
+                                            tag_name: {
+                                                contains: lowerInput,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                            {
+                                // Search by challenge title
+                                challenge_title: {
+                                    contains: lowerInput,
+                                },
+                            },
+                        ],
+                    },
+                ],
             },
             include: {
                 Submissions: {
                     where: {
-                        AND: [
-                            { user_id: userId },
-                            { status: true }
-                        ]
-                    }
-                }
+                        user_id: userId,
+                        status: true,
+                    },
+                },
+                Tagassign: {
+                    include: {
+                        Tag: true,
+                    },
+                },
             },
             skip: page * limit,
             take: limit,
-            orderBy: [{
-                created_at: 'asc',
-            }]
+            orderBy: [{ created_at: "asc" }],
         });
+
         const count = await prisma.challenge.count({
             where: {
-                Submissions: {
-                    some: {
-                        AND: [
-                            { user_id: userId },
-                            { status: true }
-                        ]
-                    }
-                }
-            }
+                AND: [
+                    {
+                        Submissions: {
+                            some: {
+                                AND: [
+                                    { user_id: userId },
+                                    { status: true },
+                                ],
+                            },
+                        },
+                    },
+                    {
+                        OR: [
+                            {
+                                // Search by tags
+                                Tagassign: {
+                                    some: {
+                                        Tag: {
+                                            tag_name: {
+                                                contains: lowerInput,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                            {
+                                // Search by challenge title
+                                challenge_title: {
+                                    contains: lowerInput,
+                                },
+                            },
+                        ],
+                    },
+                ],
+            },
         });
 
         const paginationData: PaginationData = {
@@ -197,43 +253,89 @@ app.post('/getChallenges', authMiddleware, async (req, res) => {
 
     const challengesWithNoTrueSubmissions = await prisma.challenge.findMany({
         where: {
-          NOT: {
-            Submissions: {
-              some: {
-                AND: [
-                  { user_id: userId },
-                  { status: true },
-                ],
-              },
+            NOT: {
+                Submissions: {
+                    some: {
+                        AND: [
+                            { user_id: userId },
+                            { status: true },
+                        ],
+                    },
+                },
             },
-          },
+            OR: [
+                {
+                    // Search by tags
+                    Tagassign: {
+                        some: {
+                            Tag: {
+                                tag_name: {
+                                    contains: lowerInput,
+                                },
+                            },
+                        },
+                    },
+                },
+                {
+                    // Search by challenge title
+                    challenge_title: {
+                        contains: lowerInput,
+                    },
+                },
+            ],
         },
         include: {
-          Submissions: {
-            where: {
-              user_id: userId,
+            Submissions: {
+                where: {
+                    user_id: userId,
+                },
             },
-          },
+            Tagassign: {
+                include: {
+                    Tag: true,
+                },
+            },
         },
         skip: page * limit,
         take: limit,
         orderBy: [{ created_at: "asc" }],
-      });
-    
-      const count = await prisma.challenge.count({
+    });
+
+    const count = await prisma.challenge.count({
         where: {
-          NOT: {
-            Submissions: {
-              some: {
-                AND: [
-                  { user_id: userId },
-                  { status: true },
-                ],
-              },
+            NOT: {
+                Submissions: {
+                    some: {
+                        AND: [
+                            { user_id: userId },
+                            { status: true },
+                        ],
+                    },
+                },
             },
-          },
+            OR: [
+                {
+                    // Search by tags
+                    Tagassign: {
+                        some: {
+                            Tag: {
+                                tag_name: {
+                                    contains: lowerInput,
+                                },
+                            },
+                        },
+                    },
+                },
+                {
+                    // Search by challenge title
+                    challenge_title: {
+                        contains: lowerInput,
+                    },
+                },
+            ],
         },
-      });
+    });
+
 
     const paginationData: PaginationData = {
         page: page + 1,
