@@ -135,116 +135,106 @@ app.post('/getChallenges', authMiddleware, async (req, res) => {
     const body = req.body;
     const page = body.page - 1 || 0;
     const limit = 10;
+    const userId = body.userId;
+    const filter = body.filter || "";
 
-    if (body !== undefined) {
-        const filter = body.filter || "all";
-        const userId = body.userId;
-        if (filter === "completed") {
-            const challengesWithSubmissionsForUser = await prisma.challenge.findMany({
-                where: {
-                    Submissions: {
-                        some: {
-                            AND: [
-                                { user_id: userId },
-                                { status: true }
-                            ]
-                        }
-                    }
-                },
-                include: {
-                    Submissions: {
-                        where: {
-                            AND: [
-                                { user_id: userId },
-                                { status: true }
-                            ]
-                        }
-                    }
-                },
-                skip: page * limit,
-                take: limit,
-                orderBy: [{
-                    created_at: 'asc',
-                }]
-            });
-            const count = await prisma.challenge.count({
-                where: {
-                    Submissions: {
-                        some: {
-                            AND: [
-                                { user_id: userId },
-                                { status: true }
-                            ]
-                        }
+    if (filter === "completed") {
+        const challengesWithSubmissionsForUser = await prisma.challenge.findMany({
+            where: {
+                Submissions: {
+                    some: {
+                        AND: [
+                            { user_id: userId },
+                            { status: true }
+                        ]
                     }
                 }
-            });
-
-            const paginationData: PaginationData = {
-                page: page + 1,
-                limit: limit,
-                total: count,
-                totalPages: Math.ceil(count / limit),
-            };
-
-            const jsonResponse: JsonResponse = {
-                success: true,
-                message: 'Challenges fetched successfully',
-                paginationData: paginationData,
-                data: challengesWithSubmissionsForUser,
-            };
-            return res.json(jsonResponse);
-        }
-        if (filter === "incomplete") {
-            const challengesWithNoTrueSubmissions = await prisma.challenge.findMany({
-                where: {
-                    Submissions: {
-                        none: {
-                            status: true
-                        }
-                    }
-                },
-                skip: page * limit,
-                take: limit,
-                orderBy: [{
-                    created_at: 'asc',
-                }]
-            });
-            const count = await prisma.challenge.count({
-                where: {
-                    Submissions: {
-                        none: {
-                            status: true
-                        }
+            },
+            include: {
+                Submissions: {
+                    where: {
+                        AND: [
+                            { user_id: userId },
+                            { status: true }
+                        ]
                     }
                 }
-            });
+            },
+            skip: page * limit,
+            take: limit,
+            orderBy: [{
+                created_at: 'asc',
+            }]
+        });
+        const count = await prisma.challenge.count({
+            where: {
+                Submissions: {
+                    some: {
+                        AND: [
+                            { user_id: userId },
+                            { status: true }
+                        ]
+                    }
+                }
+            }
+        });
 
-            const paginationData: PaginationData = {
-                page: page + 1,
-                limit: limit,
-                total: count,
-                totalPages: Math.ceil(count / limit),
-            };
+        const paginationData: PaginationData = {
+            page: page + 1,
+            limit: limit,
+            total: count,
+            totalPages: Math.ceil(count / limit),
+        };
 
-            const jsonResponse: JsonResponse = {
-                success: true,
-                message: 'Challenges fetched successfully',
-                paginationData: paginationData,
-                data: challengesWithNoTrueSubmissions,
-            };
-            return res.json(jsonResponse);
-        }
+        const jsonResponse: JsonResponse = {
+            success: true,
+            message: 'Challenges fetched successfully',
+            paginationData: paginationData,
+            data: challengesWithSubmissionsForUser,
+        };
+        return res.json(jsonResponse);
     }
 
-    const challanges = await prisma.challenge.findMany({
+    const challengesWithNoTrueSubmissions = await prisma.challenge.findMany({
+        where: {
+          NOT: {
+            Submissions: {
+              some: {
+                AND: [
+                  { user_id: userId },
+                  { status: true },
+                ],
+              },
+            },
+          },
+        },
+        include: {
+          Submissions: {
+            where: {
+              user_id: userId,
+            },
+          },
+        },
         skip: page * limit,
         take: limit,
-        orderBy: [{
-            created_at: 'asc',
-        }]
-    });
-    const count = await prisma.challenge.count();
+        orderBy: [{ created_at: "asc" }],
+      });
+    
+      const count = await prisma.challenge.count({
+        where: {
+          NOT: {
+            Submissions: {
+              some: {
+                AND: [
+                  { user_id: userId },
+                  { status: true },
+                ],
+              },
+            },
+          },
+        },
+      });
+
     const paginationData: PaginationData = {
         page: page + 1,
         limit: limit,
@@ -256,7 +246,7 @@ app.post('/getChallenges', authMiddleware, async (req, res) => {
         success: true,
         message: 'Challenges fetched successfully',
         paginationData: paginationData,
-        data: challanges,
+        data: challengesWithNoTrueSubmissions,
     };
     return res.json(jsonResponse);
 });
