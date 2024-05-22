@@ -22,6 +22,8 @@ const REPO_PERSONAL_TOKEN = process.env.REPO_PERSONAL_TOKEN || "";
 interface Challenge {
     challenge_id: string;
     challenge_title: string;
+    repo_link: string;
+    points: number;
     Tagassign: Tagassign[]; // Array of Tagassign objects
 }
 
@@ -253,6 +255,8 @@ app.post('/getChallenges', authMiddleware, async (req, res) => {
         const result = challengesWithSubmissionsForUser.map((challenge: Challenge) => ({
             challenge_id: challenge.challenge_id,
             challenge_title: challenge.challenge_title,
+            repo_link: challenge.repo_link,
+            points: challenge.points,
             tags: challenge.Tagassign.slice(0, 3).map((tagAssign) => ({ // Limit to first 3 tags
                 tag_id: tagAssign.Tag.tag_id,
                 tag_name: tagAssign.Tag.tag_name.toLowerCase(),
@@ -364,6 +368,8 @@ app.post('/getChallenges', authMiddleware, async (req, res) => {
     const result = challengesWithNoTrueSubmissions.map((challenge: Challenge) => ({
         challenge_id: challenge.challenge_id,
         challenge_title: challenge.challenge_title,
+        repo_link: challenge.repo_link,
+        points: challenge.points,
         tags: challenge.Tagassign.slice(0, 3).map((tagAssign) => ({ // Limit to first 3 tags
             tag_id: tagAssign.Tag.tag_id,
             tag_name: tagAssign.Tag.tag_name.toLowerCase(),
