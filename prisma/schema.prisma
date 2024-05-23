@@ -41,6 +41,7 @@ model Submission {
     challenge_id           String
     status                 Boolean
     passed_test_case_value Int
+    log_file_path          String?
     created_at             DateTime @default(now())
 
     User      User      @relation(fields: [user_id], references: [user_id])
