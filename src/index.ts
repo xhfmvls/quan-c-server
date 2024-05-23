@@ -156,6 +156,24 @@ app.post('/getChallenges', authMiddleware, async (req, res) => {
     const filter = body.filter || "";
     const search = body.search || "";
     const lowerInput = search.toLowerCase();
+    var gte, lte;
+    const difficulty = body.difficulty || "all";
+    if (difficulty == "easy") {
+        gte = 0;
+        lte = 15;
+    }
+    else if (difficulty == "medium") {
+        gte = 16;
+        lte = 25;
+    }
+    else if (difficulty == "hard") {
+        gte = 26;
+        lte = 50;
+    }
+    else {
+        gte = 0;
+        lte = 50;
+    }
 
     if (filter === "completed") {
         const challengesWithSubmissionsForUser = await prisma.challenge.findMany({
@@ -174,7 +192,6 @@ app.post('/getChallenges', authMiddleware, async (req, res) => {
                     {
                         OR: [
                             {
-                                // Search by tags
                                 Tagassign: {
                                     some: {
                                         Tag: {
@@ -186,12 +203,17 @@ app.post('/getChallenges', authMiddleware, async (req, res) => {
                                 },
                             },
                             {
-                                // Search by challenge title
                                 challenge_title: {
                                     contains: lowerInput,
                                 },
                             },
                         ],
+                    },
+                    {
+                        points: {
+                            gte: gte,
+                            lte: lte,
+                        },
                     },
                 ],
             },
@@ -229,7 +251,6 @@ app.post('/getChallenges', authMiddleware, async (req, res) => {
                     {
                         OR: [
                             {
-                                // Search by tags
                                 Tagassign: {
                                     some: {
                                         Tag: {
@@ -241,12 +262,17 @@ app.post('/getChallenges', authMiddleware, async (req, res) => {
                                 },
                             },
                             {
-                                // Search by challenge title
                                 challenge_title: {
                                     contains: lowerInput,
                                 },
                             },
                         ],
+                    },
+                    {
+                        points: {
+                            gte: gte,
+                            lte: lte,
+                        },
                     },
                 ],
             },
@@ -293,7 +319,6 @@ app.post('/getChallenges', authMiddleware, async (req, res) => {
             },
             OR: [
                 {
-                    // Search by tags
                     Tagassign: {
                         some: {
                             Tag: {
@@ -305,12 +330,15 @@ app.post('/getChallenges', authMiddleware, async (req, res) => {
                     },
                 },
                 {
-                    // Search by challenge title
                     challenge_title: {
                         contains: lowerInput,
                     },
                 },
             ],
+            points: {
+                gte: gte,
+                lte: lte,
+            },
         },
         include: {
             Submissions: {
@@ -343,7 +371,6 @@ app.post('/getChallenges', authMiddleware, async (req, res) => {
             },
             OR: [
                 {
-                    // Search by tags
                     Tagassign: {
                         some: {
                             Tag: {
@@ -355,12 +382,15 @@ app.post('/getChallenges', authMiddleware, async (req, res) => {
                     },
                 },
                 {
-                    // Search by challenge title
                     challenge_title: {
                         contains: lowerInput,
                     },
                 },
             ],
+            points: {
+                gte: gte,
+                lte: lte,
+            },
         },
     });
 
