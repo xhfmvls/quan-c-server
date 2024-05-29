@@ -3,12 +3,20 @@ import express from 'express';
 import dotenv from 'dotenv';
 import bodyParser from 'body-parser';
 import cors from 'cors';
+import axios from 'axios';
+import multer from 'multer';
+// import FormData from 'form-data';
+import { v4 as uuidv4 } from 'uuid';
+import { Readable, Writable } from 'stream';
+import fs, { readFileSync } from 'fs';
 const { PrismaClient } = require('@prisma/client');
 require('express-async-errors');
 
 dotenv.config();
 const app = express();
 const port = 8000;
+const service_port = 8080;
+const storage = multer.memoryStorage();
 const prisma = new PrismaClient();
 app.use(cors());
 app.use(bodyParser.json());
@@ -59,8 +67,6 @@ class CustomError extends Error {
     }
 }
 
-export default CustomError;
-
 const customErrorHandler = (err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (err instanceof CustomError) {
         console.error(`[-] ${err.message}`);
@@ -102,6 +108,22 @@ const authMiddleware = async (req: express.Request, res: express.Response, next:
     req.body.userId = user.user_id;
     return next();
 }
+
+const upload = multer({
+    storage: storage,
+    limits: {
+        fileSize: 1024 * 1024 * 10, // Limit file size to 10MB
+    },
+});
+
+const singleUpload = (req: Request, res: Response, next: Function) => {
+    upload.single('file')(req as any, res as any, (err: any) => {
+        if (err) {
+            throw new CustomError('Failed to upload file');
+        }
+        next();
+    });
+};
 
 // Routes and Controllers
 
@@ -146,6 +168,63 @@ app.get('/getUserData', async (req, res) => {
         .catch((error) => {
             console.error('Error:', error);
         });
+});
+
+app.post('/submitAnswer', authMiddleware, upload.single('file'), async (req, res) => {
+    const body = req.body;
+    const userId = body.userId;
+    const challengeId = body.challengeId;
+    const submissionId = uuidv4();
+    const file = req.file;
+    const challengeData = await prisma.Challenge.findFirst({
+        where: {
+            challenge_id: challengeId,
+        },
+    });
+
+    if (!file) {
+        throw new CustomError('No file uploaded');
+    }
+
+    const fileContent = file.buffer.toString('utf-8');
+
+    const totalTestCase = challengeData.total_test_case;
+
+
+    // try {'utf8');
+    const submitFile = new File([fileContent], 'app - Copy.js', { type: 'text/javascript' });
+    let formData = new FormData();
+    try {
+
+        formData.append('challenge_id', challengeId || "");
+        formData.append('user_id', userId || "");
+        formData.append('test_case_total', totalTestCase || 10);
+        formData.append('id', submissionId || "");
+        formData.append('file', submitFile);
+    }
+    catch (err) {
+        console.log(err);
+        throw new CustomError('Failed to create form data');
+    }
+
+
+    const response = await axios.post(
+        `http://localhost:${8080}/create-submission`,
+        formData,
+        {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        }
+    );
+
+    if (response.status == 200) {
+        return res.json({
+            success: true,
+            message: 'Answer submitted',
+        });
+    }
+    else {
+        throw new CustomError('Failed to submit answer');
+    }
 });
 
 app.post('/getChallenges', authMiddleware, async (req, res) => {
