@@ -167,21 +167,39 @@ app.get('/getUserData', async (req, res) => {
     if (auth === undefined) {
         return res.status(401).send('Unauthorized');
     }
-    await fetch('https://api.github.com/user', {
-        method: 'GET',
+
+    const response = await axios.get('https://api.github.com/user', {
         headers: {
             'Authorization': auth,
         }
-    })
-        .then((response) => {
-            return response.json();
-        })
-        .then((data) => {
-            res.json(data);
-        })
-        .catch((error) => {
-            console.error('Error:', error);
+    });
+
+    if (response.status == 200) {
+        const user = await prisma.user.findFirst({
+            where: {
+                github_id: response.data.id.toString(),
+            },
+            include: {
+                Role: true,
+            },
         });
+
+        if (!user) {
+            throw new CustomError('User not found');
+        }
+        const responseData = response.data;
+        responseData.app_data = {
+            user_id: user.user_id,
+            role: user.Role.role_name,
+        }
+        const jsronResponse: JsonResponse = {
+            success: true,
+            message: 'User data fetched successfully',
+            data: responseData,
+        };
+        return res.json(jsronResponse);
+    }
+    throw new CustomError('Failed to fetch user data');;
 });
 
 app.post('/submitAnswer', authMiddleware, upload.single('file'), async (req, res) => {
@@ -234,7 +252,6 @@ app.post('/submitAnswer', authMiddleware, upload.single('file'), async (req, res
         throw new CustomError('Failed to submit answer');
     }
 
-    console.log(submissionId)
 
     for (let i = 0; i < 20; i++) {
         const submissionData = await prisma.Submission.findFirst({
