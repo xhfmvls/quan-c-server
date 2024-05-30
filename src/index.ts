@@ -202,6 +202,35 @@ app.get('/getUserData', async (req, res) => {
     throw new CustomError('Failed to fetch user data');;
 });
 
+app.post('/addUser', async (req, res) => {
+    const body = req.body;
+    const githubId = body.github_id;
+
+    if(!githubId) {
+        throw new CustomError('Github ID is required');
+    }
+
+    const userRole = await prisma.userRole.findFirst({
+        where: {
+            role_name: 'user'
+        }
+    });
+
+    const user = await prisma.user.create({
+        data: {
+            github_id: githubId,
+            role_id: userRole.role_id,
+        }
+    });
+
+    const jsonResponse: JsonResponse = {
+        success: true,
+        message: 'User added successfully',
+        data: user,
+    };
+    return res.json(jsonResponse);
+});
+
 app.post('/submitAnswer', authMiddleware, upload.single('file'), async (req, res) => {
     const body = req.body;
     const userId = body.userId;
