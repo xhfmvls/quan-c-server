@@ -58,6 +58,20 @@ interface JsonResponse {
     data?: any;
 }
 
+// Utils
+
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+function getPassedTestCaseList(maxValue: number, decimalNumber: number): number[] {
+    const numberArray: number[] = [];
+    for (let i = 0; i < maxValue; i++) {
+        if (decimalNumber & (1 << i)) {
+            numberArray.push(i + 1);
+        }
+    }
+    return numberArray;
+}
+
 // Middleware
 
 class CustomError extends Error {
@@ -216,15 +230,46 @@ app.post('/submitAnswer', authMiddleware, upload.single('file'), async (req, res
         }
     );
 
-    if (response.status == 200) {
-        return res.json({
-            success: true,
-            message: 'Answer submitted',
-        });
-    }
-    else {
+    if (response.status != 200) {
         throw new CustomError('Failed to submit answer');
     }
+
+    console.log(submissionId)
+
+    for (let i = 0; i < 20; i++) {
+        const submissionData = await prisma.Submission.findFirst({
+            where: {
+                submission_id: submissionId,
+                // submission_id: "1b057e38-2dd9-44a4-86c6-c6c5a4c2de33"
+            },
+        });
+
+
+        if (submissionData) {
+            const challengeData = await prisma.Challenge.findFirst({
+                where: {
+                    challenge_id: submissionData.challenge_id,
+                },
+            });
+
+            if (!challengeData) {
+                throw new CustomError('Data not found');
+            }
+
+            const challenge_test_case: number = challengeData.total_test_case;
+            const passed_test_case_list = getPassedTestCaseList(challenge_test_case, submissionData.passed_test_case_value);
+            submissionData.passed_test_case = passed_test_case_list;
+            const jsonResponse: JsonResponse = {
+                success: true,
+                message: 'Submission Finished',
+                data: submissionData,
+            };
+            return res.json(jsonResponse);
+        }
+        await delay(5 * 1000);
+    }
+
+    return res.status(200).json({ message: 'Data not found' });
 });
 
 app.post('/getChallenges', authMiddleware, async (req, res) => {
