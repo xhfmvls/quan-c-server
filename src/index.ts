@@ -9,6 +9,7 @@ import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
 import { Readable, Writable } from 'stream';
 import fs, { readFileSync } from 'fs';
+import { readFile } from 'fs/promises';
 const { PrismaClient } = require('@prisma/client');
 require('express-async-errors');
 
@@ -207,7 +208,7 @@ app.post('/addUser', async (req, res) => {
     const body = req.body;
     const githubId = body.github_id;
 
-    if(!githubId) {
+    if (!githubId) {
         throw new CustomError('Github ID is required');
     }
 
@@ -287,7 +288,6 @@ app.post('/submitAnswer', authMiddleware, upload.single('file'), async (req, res
         const submissionData = await prisma.Submission.findFirst({
             where: {
                 submission_id: submissionId,
-                // submission_id: "1b057e38-2dd9-44a4-86c6-c6c5a4c2de33"
             },
         });
 
@@ -317,6 +317,47 @@ app.post('/submitAnswer', authMiddleware, upload.single('file'), async (req, res
     }
 
     return res.status(200).json({ message: 'Data not found' });
+});
+
+app.get('/getSubmissionLog/:submissionId', async (req, res) => {
+    const { submissionId } = req.params;
+    let logPath: string;
+    let log: string;
+    try {
+        const submission = await prisma.Submission.findFirst({
+            where: {
+                submission_id: submissionId,
+            },
+        });
+
+        if (!submission) {
+            throw new CustomError('Submission not found');
+        }
+        const path_hash = submission.log_file_path;
+        logPath = `../quan-c-runner/logs/${path_hash}`;
+    }
+    catch (err) {
+        throw new CustomError('Failed to fetch submission log');
+    }
+
+    try {
+        log = await readFile(logPath, 'utf-8');
+    }
+    catch (err) {
+        throw new CustomError('Failed to read log file');
+    }
+
+    if (!log) {
+        throw new CustomError('Failed to read log file');
+    }
+
+    const jsonResponse: JsonResponse = {
+        success: true,
+        message: 'Submission log fetched successfully',
+        data: log,
+    };
+
+    return res.json(jsonResponse);
 });
 
 app.post('/getChallenges', authMiddleware, async (req, res) => {
