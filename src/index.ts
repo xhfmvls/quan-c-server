@@ -32,6 +32,7 @@ interface Challenge {
     challenge_title: string;
     repo_link: string;
     points: number;
+    total_test_case: number;
     Tagassign: Tagassign[]; // Array of Tagassign objects
 }
 
@@ -453,6 +454,7 @@ app.post('/getChallenges', authMiddleware, async (req, res) => {
             challenge_title: challenge.challenge_title,
             repo_link: challenge.repo_link.substring(19),
             points: challenge.points,
+            total_test_Case: challenge.total_test_case,
             tags: challenge.Tagassign.slice(0, 3).map((tagAssign) => ({ // Limit to first 3 tags
                 tag_id: tagAssign.Tag.tag_id,
                 tag_name: tagAssign.Tag.tag_name.toLowerCase(),
@@ -570,6 +572,7 @@ app.post('/getChallenges', authMiddleware, async (req, res) => {
         challenge_title: challenge.challenge_title,
         repo_link: challenge.repo_link.substring(19),
         points: challenge.points,
+        total_test_Case: challenge.total_test_case,
         tags: challenge.Tagassign.slice(0, 3).map((tagAssign) => ({ // Limit to first 3 tags
             tag_id: tagAssign.Tag.tag_id,
             tag_name: tagAssign.Tag.tag_name.toLowerCase(),
