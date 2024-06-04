@@ -218,6 +218,19 @@ app.post('/addUser', async (req, res) => {
         }
     });
 
+    const searchUser = await prisma.user.findFirst({
+        where: {
+            github_id: githubId,
+        }
+    });
+
+    if (searchUser) {
+        res.json({
+            success: true,
+            message: 'User already exists',
+        })
+    }
+
     const user = await prisma.user.create({
         data: {
             github_id: githubId,
