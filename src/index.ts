@@ -74,6 +74,26 @@ function getPassedTestCaseList(maxValue: number, decimalNumber: number): number[
     return numberArray;
 }
 
+const insertTags = async (tags: string[]) => {
+    tags.forEach(async (tag: string) => {
+        const tagFormat = tag.toUpperCase();
+        const searchTag = await prisma.Tag.findFirst({
+            where: {
+                tag_name: tagFormat,
+            }
+        });
+
+        if (!searchTag) {
+            const newTag = await prisma.Tag.create({
+                data: {
+                    tag_name: tagFormat,
+                }
+            });
+            console.log(newTag)
+        }
+    });
+}
+
 // Middleware
 
 class CustomError extends Error {
@@ -131,6 +151,24 @@ const upload = multer({
         fileSize: 1024 * 1024 * 10, // Limit file size to 10MB
     },
 });
+
+const roleMiddleware = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const user_id = req.body.userId;
+
+    const user = await prisma.user.findFirst({
+        where: {
+            user_id: user_id,
+        },
+        include: {
+            Role: true,
+        },
+    });
+
+    if (user.Role.role_name !== 'admin') {
+        throw new CustomError('Unauthorized');
+    }
+    return next();
+}
 
 const singleUpload = (req: Request, res: Response, next: Function) => {
     upload.single('file')(req as any, res as any, (err: any) => {
@@ -244,6 +282,16 @@ app.post('/addUser', async (req, res) => {
         data: user,
     };
     return res.json(jsonResponse);
+});
+
+app.post('/submitChallenge', authMiddleware, roleMiddleware, async (req, res) => {
+    const tags = req.body.tags;
+    if (tags.length == 0 || tags[0] == "") {
+        throw new CustomError('Tags are required');
+    }
+
+    insertTags(tags);
+    return res.status(200).send("p")
 });
 
 app.post('/submitAnswer', authMiddleware, upload.single('file'), async (req, res) => {
