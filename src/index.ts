@@ -10,6 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Readable, Writable } from 'stream';
 import fs, { readFileSync } from 'fs';
 import { readFile } from 'fs/promises';
+import path from 'path';
 const { PrismaClient } = require('@prisma/client');
 require('express-async-errors');
 
@@ -277,7 +278,7 @@ app.post('/addUser', async (req, res) => {
     });
 
     if (searchUser) {
-        res.json({
+        return res.json({
             success: true,
             message: 'User already exists',
         })
@@ -298,12 +299,13 @@ app.post('/addUser', async (req, res) => {
     return res.json(jsonResponse);
 });
 
-app.post('/submitChallenge', authMiddleware, roleMiddleware, async (req, res) => {
+app.post('/submitChallenge', upload.single('file'), async (req, res) => {
     const title = req.body.title;
     const link = req.body.link;
-    const points = req.body.points;
-    const total_test_cases = req.body.total_test_case;
+    const points = parseInt(req.body.points);
+    const total_test_cases = parseInt(req.body.total_test_case);
     const tags = req.body.tags;
+    const file = req.file;
 
     if (!title || !link || !points || !total_test_cases || !tags) {
         throw new CustomError('All fields are required');
@@ -317,20 +319,38 @@ app.post('/submitChallenge', authMiddleware, roleMiddleware, async (req, res) =>
         throw new CustomError('Tags are required');
     }
 
-    const challenge = await prisma.Challenge.create({
-        data: {
-            challenge_title: title,
-            repo_link: link,
-            points: points,
-            total_test_case: total_test_cases,
-        }
-    });
+    if (!file) {
+        throw new CustomError('No file uploaded');
+    }
 
-    const challengeId = challenge.challenge_id;
+    // const challenge = await prisma.Challenge.create({
+    //     data: {
+    //         challenge_title: title,
+    //         repo_link: link,
+    //         points: points,
+    //         total_test_case: total_test_cases,
+    //     }
+    // });
 
-    insertTags(tags, challengeId);
+    // const challengeId = challenge.challenge_id;
+    // insertTags(tags, challengeId);
 
-    return res.status(200).send("SUCCESS")
+    if(file.originalname.split('.').pop() !== 'zip'){
+        throw new CustomError('Only zip files are allowed');
+    }
+
+    const uploadPath = '../quan-c-runner/submissions/';
+
+    const filePath = path.join(uploadPath, file.originalname);
+
+    await fs.promises.writeFile(filePath, file.buffer);
+
+    const jsonResponse: JsonResponse = {
+        success: true,
+        message: `Challenge submitted successfully on ${filePath}`,
+    };
+    
+    return res.status(200).json(jsonResponse);
 });
 
 app.post('/submitAnswer', authMiddleware, upload.single('file'), async (req, res) => {
