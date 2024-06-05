@@ -11,6 +11,9 @@ import { Readable, Writable } from 'stream';
 import fs, { readFileSync } from 'fs';
 import { readFile } from 'fs/promises';
 import path from 'path';
+import { promisify } from 'util';
+import { exec } from 'child_process';
+import { chdir } from 'process';
 const { PrismaClient } = require('@prisma/client');
 require('express-async-errors');
 
@@ -65,6 +68,8 @@ interface JsonResponse {
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+const execAsync = promisify(exec);
+
 function getPassedTestCaseList(maxValue: number, decimalNumber: number): number[] {
     const numberArray: number[] = [];
     for (let i = 0; i < maxValue; i++) {
@@ -107,6 +112,35 @@ const insertTags = async (tags: string[], challengeId: string) => {
             });
         }
     });
+}
+
+async function executeRunFileCommands(runFilePath: string): Promise<void> {
+    try {
+        // Resolve the directory of run.txt
+        const runDirectory = path.dirname(runFilePath);
+
+        // Read the contents of run.txt
+        const runCommands = await fs.promises.readFile(runFilePath, 'utf-8');
+
+        // Split the commands by newline character
+        const commands = runCommands.split('\n');
+
+        // Execute each command asynchronously
+        for (const command of commands) {
+            // Execute the command asynchronously
+            try {
+                // Change the working directory before executing the command
+                const options = { cwd: runDirectory };
+                await execAsync(command, options);
+            } catch (error) {
+                console.error(`Error executing command: ${command}`, error);
+                throw new CustomError(`Error executing command: ${command}`);
+            }
+        }
+    } catch (error) {
+        console.error('Error executing commands from run.txt:', error);
+        throw new CustomError('Error executing commands from run.txt');
+    }
 }
 
 // Middleware
@@ -306,6 +340,7 @@ app.post('/submitChallenge', upload.single('file'), async (req, res) => {
     const total_test_cases = parseInt(req.body.total_test_case);
     const tags = req.body.tags;
     const file = req.file;
+    let challenge
 
     if (!title || !link || !points || !total_test_cases || !tags) {
         throw new CustomError('All fields are required');
@@ -323,29 +358,36 @@ app.post('/submitChallenge', upload.single('file'), async (req, res) => {
         throw new CustomError('No file uploaded');
     }
 
-    // const challenge = await prisma.Challenge.create({
-    //     data: {
-    //         challenge_title: title,
-    //         repo_link: link,
-    //         points: points,
-    //         total_test_case: total_test_cases,
-    //     }
-    // });
+    try {
+        challenge = await prisma.Challenge.create({
+            data: {
+                challenge_title: title,
+                repo_link: link,
+                points: points,
+                total_test_case: total_test_cases,
+            }
+        });
+    }
+    catch (err) {
+        throw new CustomError('Failed to create challenge');
+    }
 
-    // const challengeId = challenge.challenge_id;
-    // insertTags(tags, challengeId);
+    const challengeId = challenge.challenge_id;
+    insertTags(tags, challengeId);
 
     if (file.originalname.split('.').pop() !== 'zip') {
         throw new CustomError('Only zip files are allowed');
     }
 
-    const uploadPath = '../quan-c-runner/submissions/';
+    const uploadPath = '../quan-c-runner/challenges/';
 
-    const filePath = path.join(uploadPath, file.originalname);
+    // const filePath = path.join(uploadPath, file.originalname);
+    const filePath = path.join(uploadPath, `${challengeId}.zip`);
 
     await fs.promises.writeFile(filePath, file.buffer);
 
-    const unzipPath = path.join(uploadPath, `${path.basename(file.originalname, '.zip')}`);
+    // const unzipPath = path.join(uploadPath, `${path.basename(file.originalname, '.zip')}`);
+    const unzipPath = path.join(uploadPath, `${path.basename(challengeId, '.zip')}`);
 
     try {
         await new Promise((resolve, reject) => {
@@ -354,11 +396,14 @@ app.post('/submitChallenge', upload.single('file'), async (req, res) => {
                 .on('close', resolve)
                 .on('error', reject);
         });
+
     }
     catch (err) {
-        console.log(err)
         throw new CustomError('Failed to extract zip file');
     }
+
+    const runFilePath = path.join(unzipPath, 'app', 'run.txt');
+    await executeRunFileCommands(runFilePath);
 
     const jsonResponse: JsonResponse = {
         success: true,
@@ -401,7 +446,6 @@ app.post('/submitAnswer', authMiddleware, upload.single('file'), async (req, res
         formData.append('file', submitFile);
     }
     catch (err) {
-        console.log(err);
         throw new CustomError('Failed to create form data');
     }
 
