@@ -74,7 +74,7 @@ function getPassedTestCaseList(maxValue: number, decimalNumber: number): number[
     return numberArray;
 }
 
-const insertTags = async (tags: string[]) => {
+const insertTags = async (tags: string[], challengeId: string) => {
     tags.forEach(async (tag: string) => {
         const tagFormat = tag.toUpperCase();
         const searchTag = await prisma.Tag.findFirst({
@@ -89,7 +89,21 @@ const insertTags = async (tags: string[]) => {
                     tag_name: tagFormat,
                 }
             });
-            console.log(newTag)
+            await prisma.TagAssign.create({
+                data: {
+                    challenge_id: challengeId,
+                    tag_id: newTag.tag_id,
+                }
+            });
+        }
+        else {
+            const tagId = searchTag.tag_id;
+            await prisma.TagAssign.create({
+                data: {
+                    challenge_id: challengeId,
+                    tag_id: tagId,
+                }
+            });
         }
     });
 }
@@ -285,13 +299,38 @@ app.post('/addUser', async (req, res) => {
 });
 
 app.post('/submitChallenge', authMiddleware, roleMiddleware, async (req, res) => {
+    const title = req.body.title;
+    const link = req.body.link;
+    const points = req.body.points;
+    const total_test_cases = req.body.total_test_case;
     const tags = req.body.tags;
-    if (tags.length == 0 || tags[0] == "") {
+
+    if (!title || !link || !points || !total_test_cases || !tags) {
+        throw new CustomError('All fields are required');
+    }
+
+    if (!Number.isInteger(points) || !Number.isInteger(total_test_cases)) {
+        throw new CustomError('Points and total test cases must be integers');
+    }
+
+    if (!Array.isArray(tags) || tags[0] == "") {
         throw new CustomError('Tags are required');
     }
 
-    insertTags(tags);
-    return res.status(200).send("p")
+    const challenge = await prisma.Challenge.create({
+        data: {
+            challenge_title: title,
+            repo_link: link,
+            points: points,
+            total_test_case: total_test_cases,
+        }
+    });
+
+    const challengeId = challenge.challenge_id;
+
+    insertTags(tags, challengeId);
+
+    return res.status(200).send("SUCCESS")
 });
 
 app.post('/submitAnswer', authMiddleware, upload.single('file'), async (req, res) => {
