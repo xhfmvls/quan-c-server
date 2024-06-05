@@ -5,7 +5,7 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import axios from 'axios';
 import multer from 'multer';
-// import FormData from 'form-data';
+import unzipper from 'unzipper';
 import { v4 as uuidv4 } from 'uuid';
 import { Readable, Writable } from 'stream';
 import fs, { readFileSync } from 'fs';
@@ -335,7 +335,7 @@ app.post('/submitChallenge', upload.single('file'), async (req, res) => {
     // const challengeId = challenge.challenge_id;
     // insertTags(tags, challengeId);
 
-    if(file.originalname.split('.').pop() !== 'zip'){
+    if (file.originalname.split('.').pop() !== 'zip') {
         throw new CustomError('Only zip files are allowed');
     }
 
@@ -345,11 +345,26 @@ app.post('/submitChallenge', upload.single('file'), async (req, res) => {
 
     await fs.promises.writeFile(filePath, file.buffer);
 
+    const unzipPath = path.join(uploadPath, `${path.basename(file.originalname, '.zip')}`);
+
+    try {
+        await new Promise((resolve, reject) => {
+            fs.createReadStream(filePath)
+                .pipe(unzipper.Extract({ path: unzipPath }))
+                .on('close', resolve)
+                .on('error', reject);
+        });
+    }
+    catch (err) {
+        console.log(err)
+        throw new CustomError('Failed to extract zip file');
+    }
+
     const jsonResponse: JsonResponse = {
         success: true,
         message: `Challenge submitted successfully on ${filePath}`,
     };
-    
+
     return res.status(200).json(jsonResponse);
 });
 
