@@ -623,7 +623,7 @@ app.post('/getChallenges', authMiddleware, async (req, res) => {
             },
             skip: page * limit,
             take: limit,
-            orderBy: [{ created_at: "asc" }],
+            orderBy: [{ created_at: "desc" }],
         });
 
         const count = await prisma.challenge.count({
@@ -746,7 +746,7 @@ app.post('/getChallenges', authMiddleware, async (req, res) => {
         },
         skip: page * limit,
         take: limit,
-        orderBy: [{ created_at: "asc" }],
+        orderBy: [{ created_at: "desc" }],
     });
 
     const count = await prisma.challenge.count({
