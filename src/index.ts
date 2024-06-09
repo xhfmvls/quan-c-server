@@ -8,12 +8,13 @@ import multer from 'multer';
 import unzipper from 'unzipper';
 import { v4 as uuidv4 } from 'uuid';
 import { Readable, Writable } from 'stream';
-import fs, { readFileSync } from 'fs';
+import fs, { createWriteStream, mkdir, readFileSync } from 'fs';
 import { readFile } from 'fs/promises';
-import path from 'path';
+import path, { dirname, join } from 'path';
 import { promisify } from 'util';
 import { exec } from 'child_process';
 import { chdir } from 'process';
+import { open, Entry } from 'yauzl';
 const { PrismaClient } = require('@prisma/client');
 require('express-async-errors');
 
@@ -114,6 +115,54 @@ const insertTags = async (tags: string[], challengeId: string) => {
     });
 }
 
+function extractZip(filePath: string, unzipPath: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+        open(filePath, { lazyEntries: true }, (err, zipfile) => {
+            if (err) return reject(new CustomError('Failed to open zip file'));
+
+            zipfile.on('entry', (entry: Entry) => {
+                const fileName: string = entry.fileName;
+                const entryPath: string = join(unzipPath, fileName);
+
+                if (/\/$/.test(fileName)) {
+                    // Directory entry
+                    mkdir(entryPath, { recursive: true }, (err) => {
+                        if (err) return reject(new CustomError('Failed to create directory'));
+                        zipfile.readEntry();
+                    });
+                } else {
+                    // File entry
+                    const dirPath: string = dirname(entryPath);
+                    mkdir(dirPath, { recursive: true }, (err) => {
+                        if (err) return reject(new CustomError('Failed to create directory'));
+
+                        zipfile.openReadStream(entry, (err, readStream) => {
+                            if (err) return reject(new CustomError('Failed to read zip entry'));
+
+                            const writeStream = createWriteStream(entryPath);
+                            readStream.pipe(writeStream);
+
+                            readStream.on('end', () => {
+                                zipfile.readEntry();
+                            });
+
+                            writeStream.on('error', () => {
+                                return reject(new CustomError('Failed to write file'));
+                            });
+                        });
+                    });
+                }
+            });
+
+            zipfile.on('end', resolve);
+            zipfile.on('error', () => reject(new CustomError('Failed during zip extraction')));
+            zipfile.readEntry();
+        });
+    });
+}
+
+
+
 async function executeRunFileCommands(runFilePath: string): Promise<void> {
     try {
         // Resolve the directory of run.txt
@@ -197,7 +246,7 @@ const authMiddleware = async (req: express.Request, res: express.Response, next:
 const upload = multer({
     storage: storage,
     limits: {
-        fileSize: 1024 * 1024 * 10, // Limit file size to 10MB
+        fileSize: 1024 * 1024 * 30, // Limit file size to 30MB
     },
 });
 
@@ -387,18 +436,24 @@ app.post('/submitChallenge', upload.single('file'), async (req, res) => {
     await fs.promises.writeFile(filePath, file.buffer);
 
     // const unzipPath = path.join(uploadPath, `${path.basename(file.originalname, '.zip')}`);
-    const unzipPath = path.join(uploadPath, `${path.basename(challengeId, '.zip')}`);
+    // const unzipPath = path.join(uploadPath, `${path.basename(challengeId, '.zip')}`);
+    const unzipPath: string = join(uploadPath, `${path.basename(challengeId, '.zip')}`);
+
+    // try {
+    //     await new Promise((resolve, reject) => {
+    //         fs.createReadStream(filePath)
+    //             .pipe(unzipper.Extract({ path: unzipPath }))
+    //             .on('close', resolve)
+    //             .on('error', reject);
+    //     });
+    // }
+    // catch (err) {
+    //     throw new CustomError('Failed to extract zip file');
+    // }
 
     try {
-        await new Promise((resolve, reject) => {
-            fs.createReadStream(filePath)
-                .pipe(unzipper.Extract({ path: unzipPath }))
-                .on('close', resolve)
-                .on('error', reject);
-        });
-
-    }
-    catch (err) {
+        await extractZip(filePath, unzipPath);
+    } catch (err) {
         throw new CustomError('Failed to extract zip file');
     }
 
@@ -435,7 +490,7 @@ app.post('/submitAnswer', authMiddleware, upload.single('file'), async (req, res
 
 
     // try {'utf8');
-    const submitFile = new File([fileContent], 'app - Copy.js', { type: 'text/javascript' });
+    const submitFile = new File([fileContent], file.originalname, { type: file.mimetype });
     let formData = new FormData();
     try {
 
