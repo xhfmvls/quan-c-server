@@ -387,7 +387,7 @@ app.post('/submitChallenge', authMiddleware, roleMiddleware, upload.single('file
     const link = req.body.link;
     const points = parseInt(req.body.points);
     const total_test_cases = parseInt(req.body.total_test_case);
-    const tags = req.body.tags;
+    let tags = req.body.tags;
     const file = req.file;
     let challenge
 
@@ -396,11 +396,18 @@ app.post('/submitChallenge', authMiddleware, roleMiddleware, upload.single('file
     }
 
     if (!Number.isInteger(points) || !Number.isInteger(total_test_cases)) {
-        throw new CustomError('Points and total test cases must be integers');
+        if (points <= 0 || total_test_cases <= 0) {
+            throw new CustomError('Points and total test cases must be integers and greater than 0');
+        }
     }
 
     if (!Array.isArray(tags) || tags[0] == "") {
-        throw new CustomError('Tags are required');
+        if (typeof tags === 'string') {
+            tags = [tags]
+        }
+        else {
+            throw new CustomError('Tags are required');
+        }
     }
 
     if (!file) {
