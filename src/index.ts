@@ -382,7 +382,7 @@ app.post('/addUser', async (req, res) => {
     return res.json(jsonResponse);
 });
 
-app.post('/submitChallenge', upload.single('file'), async (req, res) => {
+app.post('/submitChallenge', authMiddleware, roleMiddleware, upload.single('file'), async (req, res) => {
     const title = req.body.title;
     const link = req.body.link;
     const points = parseInt(req.body.points);
