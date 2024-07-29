@@ -71,6 +71,45 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const execAsync = promisify(exec);
 
+const addUser = (githubId: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      if (!githubId) {
+        return reject(new CustomError('Github ID is required'));
+      }
+  
+      prisma.userRole.findFirst({
+        where: {
+          role_name: 'user'
+        }
+      }).then((userRole: { role_id: any; }) => {
+        if (!userRole) {
+          throw new CustomError('User role not found');
+        }
+  
+        return prisma.user.findFirst({
+          where: {
+            github_id: githubId,
+          }
+        }).then((searchUser: any) => {
+          if (searchUser) {
+            return resolve(); // User already exists, resolve without creating
+          }
+  
+          return prisma.user.create({
+            data: {
+              github_id: githubId,
+              role_id: userRole.role_id,
+            }
+          }).then((user: any) => {
+            resolve();
+          });
+        });
+      }).catch((error: any) => {
+        reject(error);
+      });
+    });
+  }
+
 function getPassedTestCaseList(maxValue: number, decimalNumber: number): number[] {
     const numberArray: number[] = [];
     for (let i = 0; i < maxValue; i++) {
@@ -313,6 +352,7 @@ app.get('/getUserData', async (req, res) => {
     });
 
     if (response.status == 200) {
+        await addUser(response.data.id.toString());
         const user = await prisma.user.findFirst({
             where: {
                 github_id: response.data.id.toString(),
@@ -513,12 +553,14 @@ app.post('/submitAnswer', authMiddleware, upload.single('file'), async (req, res
 
 
     const response = await axios.post(
-        `http://localhost:${8080}/create-submission`,
+        `http://127.0.0.1:${8080}/create-submission`,
         formData,
         {
             headers: { 'Content-Type': 'multipart/form-data' },
         }
     );
+
+    console.log(response.data)
 
     if (response.status != 200) {
         throw new CustomError('Failed to submit answer');
