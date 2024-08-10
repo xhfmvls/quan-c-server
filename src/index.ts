@@ -454,22 +454,7 @@ app.post('/submitChallenge', authMiddleware, roleMiddleware, upload.single('file
         throw new CustomError('No file uploaded');
     }
 
-    try {
-        challenge = await prisma.Challenge.create({
-            data: {
-                challenge_title: title,
-                repo_link: link,
-                points: points,
-                total_test_case: total_test_cases,
-            }
-        });
-    }
-    catch (err) {
-        throw new CustomError('Failed to create challenge');
-    }
-
-    const challengeId = challenge.challenge_id;
-    insertTags(tags, challengeId);
+    const challengeId = uuidv4();
 
     if (file.originalname.split('.').pop() !== 'zip') {
         throw new CustomError('Only zip files are allowed');
@@ -506,6 +491,24 @@ app.post('/submitChallenge', authMiddleware, roleMiddleware, upload.single('file
 
     const runFilePath = path.join(unzipPath, 'app', 'run.txt');
     await executeRunFileCommands(runFilePath);
+
+    try {
+        challenge = await prisma.Challenge.create({
+            data: {
+                challenge_id: challengeId,
+                challenge_title: title,
+                repo_link: link,
+                points: points,
+                total_test_case: total_test_cases,
+            }
+        });
+    }
+    catch (err) {
+        throw new CustomError('Failed to create challenge');
+    }
+
+    // const challengeId = challenge.challenge_id;
+    insertTags(tags, challengeId);
 
     const jsonResponse: JsonResponse = {
         success: true,

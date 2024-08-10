@@ -33,23 +33,23 @@ async function main() {
         throw new Error("User role not found");
     }
 
-    // // Inserting the admin user
-    // await prisma.user.createMany({
-    //     data: [
-    //         {
-    //             role_id: adminRole.role_id,
-    //             github_id: '77483582',
-    //         },
-    //         {
-    //             role_id: userRole.role_id,
-    //             github_id: '109542977',
-    //         },
-    //         {
-    //             role_id: userRole.role_id,
-    //             github_id: '94731863',
-    //         }
-    //     ]
-    // });
+    // Inserting the admin user
+    await prisma.user.createMany({
+        data: [
+            {
+                role_id: adminRole.role_id,
+                github_id: '77483582',
+            },
+            {
+                role_id: userRole.role_id,
+                github_id: '109542977',
+            },
+            {
+                role_id: userRole.role_id,
+                github_id: '94731863',
+            }
+        ]
+    });
 
     // // Inserting a challenge
     // await prisma.challenge.create({
