@@ -1,0 +1,367 @@
+import express from "express";
+import CustomError from '../utils/error.utils';
+import { JsonResponse, Challenge, PaginationData } from '../interfaces';
+import { insertTags } from "../utils/misc.utils";
+import { v4 as uuidv4 } from 'uuid';
+import path, { dirname, join } from 'path';
+import fs, { createWriteStream, mkdir, readFileSync } from 'fs';
+import { extractZip, executeRunFileCommands } from "../utils/misc.utils";
+const { PrismaClient } = require('@prisma/client');
+
+const prisma = new PrismaClient();
+
+export const submitChallege = async (req: express.Request, res: express.Response) => {
+    const title = req.body.title;
+    const link = req.body.link;
+    const points = parseInt(req.body.points);
+    const total_test_cases = parseInt(req.body.total_test_case);
+    let tags = req.body.tags;
+    const file = req.file;
+    let challenge
+
+    if (!title || !link || !points || !total_test_cases || !tags) {
+        throw new CustomError('All fields are required');
+    }
+
+    if (!Number.isInteger(points) || !Number.isInteger(total_test_cases)) {
+        if (points <= 0 || total_test_cases <= 0) {
+            throw new CustomError('Points and total test cases must be integers and greater than 0');
+        }
+    }
+
+    if (!Array.isArray(tags) || tags[0] == "") {
+        if (typeof tags === 'string') {
+            tags = [tags]
+        }
+        else {
+            throw new CustomError('Tags are required');
+        }
+    }
+
+    if (!file) {
+        throw new CustomError('No file uploaded');
+    }
+
+    const challengeId = uuidv4();
+
+    if (file.originalname.split('.').pop() !== 'zip') {
+        throw new CustomError('Only zip files are allowed');
+    }
+
+    const uploadPath = '../quan-c-runner/challenges/';
+
+    const filePath = path.join(uploadPath, `${challengeId}.zip`);
+
+    await fs.promises.writeFile(filePath, file.buffer);
+
+    const unzipPath: string = join(uploadPath, `${path.basename(challengeId, '.zip')}`);
+
+    try {
+        await extractZip(filePath, unzipPath);
+    } catch (err) {
+        throw new CustomError('Failed to extract zip file');
+    }
+
+    const runFilePath = path.join(unzipPath, 'app', 'run.txt');
+    await executeRunFileCommands(runFilePath);
+
+    try {
+        challenge = await prisma.Challenge.create({
+            data: {
+                challenge_id: challengeId,
+                challenge_title: title,
+                repo_link: link,
+                points: points,
+                total_test_case: total_test_cases,
+            }
+        });
+    }
+    catch (err) {
+        throw new CustomError('Failed to create challenge');
+    }
+
+    insertTags(tags, challengeId);
+
+    const jsonResponse: JsonResponse = {
+        success: true,
+        message: `Challenge submitted successfully on ${filePath}`,
+    };
+
+    return res.status(200).json(jsonResponse);
+}
+
+export const getChallenges = async (req: express.Request, res: express.Response) => {
+    const body = req.body;
+    const page = body.page - 1 || 0;
+    const limit = 10;
+    const userId = body.userId;
+    const filter = body.filter || "";
+    const search = body.search || "";
+    const lowerInput = search.toLowerCase();
+    var gte, lte;
+    const difficulty = body.difficulty || "all";
+    if (difficulty == "easy") {
+        gte = 0;
+        lte = 15;
+    }
+    else if (difficulty == "medium") {
+        gte = 16;
+        lte = 25;
+    }
+    else if (difficulty == "hard") {
+        gte = 26;
+        lte = 50;
+    }
+    else {
+        gte = 0;
+        lte = 50;
+    }
+
+    if (filter === "completed") {
+        const challengesWithSubmissionsForUser = await prisma.challenge.findMany({
+            where: {
+                AND: [
+                    {
+                        Submissions: {
+                            some: {
+                                AND: [
+                                    { user_id: userId },
+                                    { status: true },
+                                ],
+                            },
+                        },
+                    },
+                    {
+                        OR: [
+                            {
+                                Tagassign: {
+                                    some: {
+                                        Tag: {
+                                            tag_name: {
+                                                contains: lowerInput,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                            {
+                                challenge_title: {
+                                    contains: lowerInput,
+                                },
+                            },
+                        ],
+                    },
+                    {
+                        points: {
+                            gte: gte,
+                            lte: lte,
+                        },
+                    },
+                ],
+            },
+            include: {
+                Submissions: {
+                    where: {
+                        user_id: userId,
+                        status: true,
+                    },
+                },
+                Tagassign: {
+                    include: {
+                        Tag: true,
+                    },
+                },
+            },
+            skip: page * limit,
+            take: limit,
+            orderBy: [{ created_at: "desc" }],
+        });
+
+        const count = await prisma.challenge.count({
+            where: {
+                AND: [
+                    {
+                        Submissions: {
+                            some: {
+                                AND: [
+                                    { user_id: userId },
+                                    { status: true },
+                                ],
+                            },
+                        },
+                    },
+                    {
+                        OR: [
+                            {
+                                Tagassign: {
+                                    some: {
+                                        Tag: {
+                                            tag_name: {
+                                                contains: lowerInput,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                            {
+                                challenge_title: {
+                                    contains: lowerInput,
+                                },
+                            },
+                        ],
+                    },
+                    {
+                        points: {
+                            gte: gte,
+                            lte: lte,
+                        },
+                    },
+                ],
+            },
+        });
+
+        const result = challengesWithSubmissionsForUser.map((challenge: Challenge) => ({
+            challenge_id: challenge.challenge_id,
+            challenge_title: challenge.challenge_title,
+            repo_link: challenge.repo_link.substring(19),
+            points: challenge.points,
+            total_test_Case: challenge.total_test_case,
+            tags: challenge.Tagassign.slice(0, 3).map((tagAssign) => ({ // Limit to first 3 tags
+                tag_id: tagAssign.Tag.tag_id,
+                tag_name: tagAssign.Tag.tag_name.toLowerCase(),
+            })),
+        }));
+
+        const paginationData: PaginationData = {
+            page: page + 1,
+            limit: limit,
+            total: count,
+            totalPages: Math.ceil(count / limit),
+        };
+
+        const jsonResponse: JsonResponse = {
+            success: true,
+            message: 'Challenges fetched successfully',
+            paginationData: paginationData,
+            data: result,
+        };
+        return res.json(jsonResponse);
+    }
+
+    const challengesWithNoTrueSubmissions = await prisma.challenge.findMany({
+        where: {
+            NOT: {
+                Submissions: {
+                    some: {
+                        AND: [
+                            { user_id: userId },
+                            { status: true },
+                        ],
+                    },
+                },
+            },
+            OR: [
+                {
+                    Tagassign: {
+                        some: {
+                            Tag: {
+                                tag_name: {
+                                    contains: lowerInput,
+                                },
+                            },
+                        },
+                    },
+                },
+                {
+                    challenge_title: {
+                        contains: lowerInput,
+                    },
+                },
+            ],
+            points: {
+                gte: gte,
+                lte: lte,
+            },
+        },
+        include: {
+            Submissions: {
+                where: {
+                    user_id: userId,
+                },
+            },
+            Tagassign: {
+                include: {
+                    Tag: true,
+                },
+            },
+        },
+        skip: page * limit,
+        take: limit,
+        orderBy: [{ created_at: "desc" }],
+    });
+
+    const count = await prisma.challenge.count({
+        where: {
+            NOT: {
+                Submissions: {
+                    some: {
+                        AND: [
+                            { user_id: userId },
+                            { status: true },
+                        ],
+                    },
+                },
+            },
+            OR: [
+                {
+                    Tagassign: {
+                        some: {
+                            Tag: {
+                                tag_name: {
+                                    contains: lowerInput,
+                                },
+                            },
+                        },
+                    },
+                },
+                {
+                    challenge_title: {
+                        contains: lowerInput,
+                    },
+                },
+            ],
+            points: {
+                gte: gte,
+                lte: lte,
+            },
+        },
+    });
+
+
+    const result = challengesWithNoTrueSubmissions.map((challenge: Challenge) => ({
+        challenge_id: challenge.challenge_id,
+        challenge_title: challenge.challenge_title,
+        repo_link: challenge.repo_link.substring(19),
+        points: challenge.points,
+        total_test_Case: challenge.total_test_case,
+        tags: challenge.Tagassign.slice(0, 3).map((tagAssign) => ({ // Limit to first 3 tags
+            tag_id: tagAssign.Tag.tag_id,
+            tag_name: tagAssign.Tag.tag_name.toLowerCase(),
+        })),
+    }));
+
+    const paginationData: PaginationData = {
+        page: page + 1,
+        limit: limit,
+        total: count,
+        totalPages: Math.ceil(count / limit),
+    };
+
+    const jsonResponse: JsonResponse = {
+        success: true,
+        message: 'Challenges fetched successfully',
+        paginationData: paginationData,
+        data: result,
+    };
+    return res.json(jsonResponse);
+}
