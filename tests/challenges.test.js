@@ -2,7 +2,7 @@ const request = require("supertest");
 const { app, server } = require('../dist/index');
 const path = require('path');
 const sampleUserId = 'a9b4582d-5f95-4187-b399-15af0ea1f482';
-const authToken = 'Bearer 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';
+const authToken = 'Bearer gho_';
 
 describe("Challenges Controller", () => {
 
