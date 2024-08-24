@@ -4,10 +4,12 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "run": "ts-node src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test:api": "jest /tests/api.test.js",
+    "test:challenges": "jest /tests/challenges.test.js"
   },
   "keywords": [],
   "author": "",
@@ -16,7 +18,9 @@
     "@types/express": "^4.17.21",
     "@types/unzipper": "^0.10.9",
     "@types/yauzl": "^2.10.3",
+    "jest": "^29.7.0",
     "prisma": "^5.13.0",
+    "supertest": "^7.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5"
   },
