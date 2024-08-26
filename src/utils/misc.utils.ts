@@ -172,6 +172,36 @@ async function executeRunFileCommands(runFilePath: string): Promise<void> {
     }
 }
 
+async function getTotalPoints(userId: string) {
+    const submissions = await prisma.submission.findMany({
+        where: {
+            user_id: userId,
+            status: true, // Only count completed challenges
+        },
+        orderBy: {
+            created_at: 'asc', // Order by the creation date to get the earliest one
+        },
+        distinct: ['challenge_id'], // Ensure only the first submission per challenge is considered
+        include: {
+            Challenge: {
+                select: {
+                    points: true,
+                },
+            },
+        },
+    });
+
+    if (!submissions) {
+        return 0;
+    }
+
+    const totalPoints: number = submissions.reduce((acc: number, submission: any) => {
+        return acc + submission.Challenge.points;
+    }, 0);
+
+    return totalPoints;
+}
+
 export {
     delay,
     execAsync,
@@ -179,5 +209,6 @@ export {
     getPassedTestCaseList,
     insertTags,
     extractZip,
-    executeRunFileCommands
+    executeRunFileCommands,
+    getTotalPoints,
 }
