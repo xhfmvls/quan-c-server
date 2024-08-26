@@ -1,7 +1,7 @@
 import express from 'express';
 import axios from 'axios';
 import { CLIENT_ID, CLIENT_SECRET } from '../config';
-import { addUser, getTotalPoints } from '../utils/misc.utils';
+import { addUser, getLastSubmissions, getTotalPoints } from '../utils/misc.utils';
 import CustomError from '../utils/error.utils';
 import { JsonResponse } from '../interfaces';
 const { PrismaClient } = require('@prisma/client');
@@ -53,12 +53,14 @@ export const getUserData = async (req: express.Request, res: express.Response) =
         }
 
         const totalPoints = await getTotalPoints(user.user_id);
+        const submissionsHistory = await getLastSubmissions(user.user_id);
 
         const responseData = response.data;
         responseData.app_data = {
             user_id: user.user_id,
             role: user.Role.role_name,
             total_points: totalPoints,
+            submissions_history: submissionsHistory,
         }
         const jsronResponse: JsonResponse = {
             success: true,

@@ -202,6 +202,41 @@ async function getTotalPoints(userId: string) {
     return totalPoints;
 }
 
+async function getLastSubmissions(userId: string) {
+    const submissions = await prisma.submission.findMany({
+        where: {
+            user_id: userId,
+        },
+        orderBy: {
+            created_at: 'desc',
+        },
+        take: 5,
+        include: {
+            Challenge: {
+                select: {
+                    challenge_title: true,
+                    points: true,
+                    total_test_case: true,
+                },
+            },
+        },
+    });
+
+    if (!submissions) {
+        return [];
+    }
+
+    return submissions.map((submission: any) => ({
+        challengeTitle: submission.Challenge.challenge_title,
+        status: submission.status,
+        passedTestCaseValue: submission.passed_test_case_value,
+        passedTestCaseCount: getPassedTestCaseList(submission.Challenge.total_test_case, submission.passed_test_case_value).length,
+        totalTestCase: submission.Challenge.total_test_case,
+        challengePoints: submission.Challenge.points,
+        createdAt: submission.created_at,
+    }));
+}
+
 export {
     delay,
     execAsync,
@@ -211,4 +246,5 @@ export {
     extractZip,
     executeRunFileCommands,
     getTotalPoints,
+    getLastSubmissions
 }
