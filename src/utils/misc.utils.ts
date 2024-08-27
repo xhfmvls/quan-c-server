@@ -217,6 +217,7 @@ async function getLastSubmissions(userId: string) {
                     challenge_title: true,
                     points: true,
                     total_test_case: true,
+                    repo_link: true,
                 },
             },
         },
@@ -227,7 +228,7 @@ async function getLastSubmissions(userId: string) {
     }
 
     return submissions.map((submission: any) => ({
-        challengeId: submission.Challenge.challenge_id,
+        challengeId: submission.challenge_id,
         repoLink: submission.Challenge.repo_link,
         challengeTitle: submission.Challenge.challenge_title,
         status: submission.status,
