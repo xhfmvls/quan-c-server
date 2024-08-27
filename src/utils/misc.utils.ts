@@ -228,6 +228,7 @@ async function getLastSubmissions(userId: string) {
 
     return submissions.map((submission: any) => ({
         challengeId: submission.Challenge.challenge_id,
+        repoLink: submission.Challenge.repo_link,
         challengeTitle: submission.Challenge.challenge_title,
         status: submission.status,
         passedTestCaseValue: submission.passed_test_case_value,
