@@ -10,7 +10,8 @@
     "start": "node dist/index.js",
     "test:api": "jest /tests/api.test.js",
     "test:challenges": "jest /tests/challenges.test.js",
-    "test:submissions": "jest /tests/submissions.test.js"
+    "test:submissions": "jest /tests/submissions.test.js",
+    "test:users": "jest /tests/users.test.js"
   },
   "keywords": [],
   "author": "",
