@@ -41,7 +41,7 @@ describe("Submissions Controller", () => {
             expect(response.body.data.passed_test_case_value).not.toBe(1023);
         }, 60000);
 
-        it("should return an error if no file is uploaded", async () => {
+        it("should return error if no file is uploaded", async () => {
             const response = await request(app)
                 .post("/submitAnswer")
                 .set("Authorization", authToken)
@@ -78,8 +78,8 @@ describe("Submissions Controller", () => {
                 .field("challengeId", challengeId)
                 .attach("file", path.join(__dirname, "test_files", "lfi.py"));
 
-                expect(response.status).toBe(500);
-                expect(response.body.success).toBe(false);
+            expect(response.status).toBe(500);
+            expect(response.body.success).toBe(false);
         });
 
         it("should return error if the Challenge id not exist", async () => {
@@ -119,7 +119,7 @@ describe("Submissions Controller", () => {
             expect(response.body.message).toEqual("Failed to read log file");
         });
 
-        it("should return error if the submission is not found", async () => {
+        it("should return error if the submission is not exist", async () => {
             const response = await request(app)
                 .get(`/getSubmissionLog/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`)
                 .set("Authorization", authToken);
