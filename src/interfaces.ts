@@ -30,10 +30,20 @@ interface JsonResponse {
     data?: any;
 }
 
+interface UserRank {
+    rank: number;
+    user_id: string;
+    user_github_data: JSON;
+    is_current_user: boolean;
+    point_total?: number;
+    first_submission_time?: Date;
+}
+
 export {
     Challenge,
     Tagassign,
     Tag,
     PaginationData,
-    JsonResponse
+    JsonResponse,
+    UserRank
 }

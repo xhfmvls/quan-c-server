@@ -1,11 +1,12 @@
 import express from "express";
 import CustomError from '../utils/error.utils';
-import { JsonResponse, Challenge, PaginationData } from '../interfaces';
+import { JsonResponse, Challenge, PaginationData, UserRank } from '../interfaces';
 import { insertTags } from "../utils/misc.utils";
 import { v4 as uuidv4 } from 'uuid';
 import path, { dirname, join } from 'path';
 import fs, { createWriteStream, mkdir, readFileSync } from 'fs';
 import { extractZip, executeRunFileCommands } from "../utils/misc.utils";
+import { getGithubDatabyId } from "../utils/user.utils";
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
@@ -88,6 +89,80 @@ export const submitChallege = async (req: express.Request, res: express.Response
     };
 
     return res.status(200).json(jsonResponse);
+}
+
+export const getChallengeLeaderboard = async (req: express.Request, res: express.Response) => {
+    const body = req.body;
+    const challengeId: string = body.challengeId;
+    const userId: string = body.userId;
+
+    const topTenLeaderboard = await prisma.submission.findMany({
+        where: {
+            challenge_id: challengeId,  // Filter by challenge ID
+            status: true,               // Only correct submissions
+        },
+        distinct: ['user_id'],         // Ensure only the first correct submission per user is selected
+        orderBy: {
+            created_at: 'asc',           // Order by the submission time (earliest first)
+        },
+        take: 10,                      // Limit to top 10 users
+        include: {
+            User: {
+                select: {
+                    user_id: true,
+                    github_id: true,
+                },
+            },
+        },
+    });
+
+    const auth = req.get('Authorization');
+
+    const leaderboard: UserRank[] = await Promise.all(
+        topTenLeaderboard.map(async (submission: any, index: number) => ({
+            rank: index + 1,
+            user_id: submission.User.user_id,
+            user_name: submission.User.github_id,
+            user_github_data: await getGithubDatabyId(submission.User.github_id, auth),
+            is_current_user: submission.User.user_id === userId,
+            first_submission_time: submission.created_at,
+        }))
+    );
+
+    const userSubmission = await prisma.submission.findFirst({
+        where: {
+            user_id: userId,  // The user ID you're looking for
+            challenge_id: challengeId,
+            status: true,     // Only correct submissions
+        },
+        orderBy: {
+            created_at: 'asc',  // Get their first correct submission
+        },
+    });
+
+    if (!userSubmission) {
+        const jsonResponse: JsonResponse = {
+            success: true,
+            message: 'User has not submitted a correct solution for this challenge',
+        };
+
+        return res.json(jsonResponse);
+    }
+
+    const userRankResult = await prisma.$queryRaw`SELECT COUNT(DISTINCT user_id) FROM submission WHERE challenge_id = ${challengeId} AND status = true AND created_at < ${userSubmission.created_at}`;
+
+    const userRank = (userRankResult as { count: number }[])[0]?.count ?? 0;
+
+    const jsonResponse: JsonResponse = {
+        success: true,
+        message: 'Leaderboard fetched successfully',
+        data: {
+            userRank: userRank + 1,
+            leaderboard: leaderboard,
+        },
+    };
+
+    return res.json(jsonResponse);
 }
 
 export const getChallenges = async (req: express.Request, res: express.Response) => {

@@ -1,7 +1,7 @@
 import express from 'express';
 import axios from 'axios';
 import { CLIENT_ID, CLIENT_SECRET } from '../config';
-import { addUser, getLastSubmissions, getTotalPoints } from '../utils/misc.utils';
+import { addUser, getLastSubmissions, getTotalPoints } from '../utils/user.utils';
 import CustomError from '../utils/error.utils';
 import { JsonResponse } from '../interfaces';
 const { PrismaClient } = require('@prisma/client');
