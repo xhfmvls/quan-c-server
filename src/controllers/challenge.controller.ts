@@ -122,7 +122,6 @@ export const getChallengeLeaderboard = async (req: express.Request, res: express
         topTenLeaderboard.map(async (submission: any, index: number) => ({
             rank: index + 1,
             user_id: submission.User.user_id,
-            user_name: submission.User.github_id,
             user_github_data: await getGithubDatabyId(submission.User.github_id, auth),
             is_current_user: submission.User.user_id === userId,
             first_submission_time: submission.created_at,
@@ -149,9 +148,10 @@ export const getChallengeLeaderboard = async (req: express.Request, res: express
         return res.json(jsonResponse);
     }
 
-    const userRankResult = await prisma.$queryRaw`SELECT COUNT(DISTINCT user_id) FROM submission WHERE challenge_id = ${challengeId} AND status = true AND created_at < ${userSubmission.created_at}`;
+    const userRankResult = await prisma.$queryRaw`SELECT COUNT(DISTINCT user_id) as 'COUNT' FROM submission WHERE challenge_id = ${challengeId} AND status = true AND created_at < ${userSubmission.created_at}`;
 
-    const userRank = (userRankResult as { count: number }[])[0]?.count ?? 0;
+    const userRank = parseInt(userRankResult[0].COUNT);
+    // const userRank = (userRankResult as { count: number }[])[0]?.count ?? 0;
 
     const jsonResponse: JsonResponse = {
         success: true,
