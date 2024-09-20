@@ -52,7 +52,7 @@ app.post('/getChallenges', authMiddleware, getChallenges);
 
 app.get('/getChallengeDetails/:challengeId', getChallengeDetails);
 
-app.put('/updateChallenge', updateChallenge)
+app.put('/updateChallenge', authMiddleware, roleMiddleware, updateChallenge);
 
 // Runner
 
