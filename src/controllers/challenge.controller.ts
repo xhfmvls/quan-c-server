@@ -1,7 +1,7 @@
 import express from "express";
 import CustomError from '../utils/error.utils';
 import { JsonResponse, Challenge, PaginationData, UserRank, Tag, Tagassign } from '../interfaces';
-import { insertTags } from "../utils/misc.utils";
+import { insertTags, updateTags } from "../utils/misc.utils";
 import { v4 as uuidv4 } from 'uuid';
 import path, { dirname, join } from 'path';
 import fs, { createWriteStream, mkdir, readFileSync } from 'fs';
@@ -200,6 +200,56 @@ export const getChallengeDetails = async (req: express.Request, res: express.Res
             total_test_case: challengeData.total_test_case,
             tags: tagList,
         },
+    };
+
+    return res.json(jsonResponse);
+}
+
+export const updateChallenge = async (req: express.Request, res: express.Response) => {
+    const body = req.body;
+    const challengeId: string = body.challengeId;
+    const title = body.title;
+    const link = body.link;
+    const points = parseInt(body.points);
+    const total_test_cases = parseInt(body.total_test_case);
+    let tags = body.tags;
+
+    if (!title || !link || !points || !total_test_cases || !tags) {
+        throw new CustomError('All fields are required');
+    }
+
+    if (!Number.isInteger(points) || !Number.isInteger(total_test_cases)) {
+        if (points <= 0 || total_test_cases <= 0) {
+            throw new CustomError('Points and total test cases must be integers and greater than 0');
+        }
+    }
+
+    if (!Array.isArray(tags) || tags[0] == "") {
+        if (typeof tags === 'string') {
+            tags = [tags]
+        }
+        else {
+            throw new CustomError('Tags are required');
+        }
+    }
+
+    updateTags(tags, challengeId);
+
+    await prisma.challenge.update({
+        where: {
+            challenge_id: challengeId,
+        },
+        data: {
+            challenge_title: title,
+            repo_link: link,
+            points: points,
+            total_test_case: total_test_cases,
+        },
+    });
+
+    const jsonResponse: JsonResponse = {
+        success: true,
+        message: 'Challenge updated successfully'
     };
 
     return res.json(jsonResponse);

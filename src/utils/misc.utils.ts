@@ -56,6 +56,24 @@ const insertTags = async (tags: string[], challengeId: string) => {
     });
 }
 
+const updateTags = async (tags: string[], challengeId: string) => {
+    const oldTags = await prisma.TagAssign.findMany({
+        where: {
+            challenge_id: challengeId,
+        }
+    });
+
+    oldTags.forEach(async(tagAssign: any) => {
+        await prisma.TagAssign.delete({
+            where: {
+                tag_assign_id: tagAssign.tag_assign_id,
+            }
+        });
+    });
+
+    await insertTags(tags, challengeId);
+}
+
 function extractZip(filePath: string, unzipPath: string): Promise<void> {
     return new Promise((resolve, reject) => {
         open(filePath, { lazyEntries: true }, (err, zipfile) => {
@@ -139,5 +157,6 @@ export {
     getPassedTestCaseList,
     insertTags,
     extractZip,
-    executeRunFileCommands
+    executeRunFileCommands,
+    updateTags
 }
