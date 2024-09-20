@@ -8,7 +8,7 @@ import multer from 'multer';
 import { authMiddleware, roleMiddleware } from './middlewares/auth.middleware';
 import customErrorHandler from './middlewares/error.middleware';
 import { addUserData, getAccessToken, getUserData } from './controllers/user.controller';
-import { getChallengeLeaderboard, getChallenges, submitChallege } from './controllers/challenge.controller';
+import { getChallengeDetails, getChallengeLeaderboard, getChallenges, submitChallege } from './controllers/challenge.controller';
 import { getSubmissionLog, submitAnswer } from './controllers/submission.controller';
 
 const { PrismaClient } = require('@prisma/client');
@@ -49,6 +49,8 @@ app.post('/submitAnswer', authMiddleware, upload.single('file'), submitAnswer);
 app.get('/getSubmissionLog/:submissionId', getSubmissionLog);
 
 app.post('/getChallenges', authMiddleware, getChallenges);
+
+app.get('/getChallengeDetails/:challengeId', getChallengeDetails);
 
 // Runner
 

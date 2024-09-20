@@ -1,6 +1,6 @@
 import express from "express";
 import CustomError from '../utils/error.utils';
-import { JsonResponse, Challenge, PaginationData, UserRank } from '../interfaces';
+import { JsonResponse, Challenge, PaginationData, UserRank, Tag, Tagassign } from '../interfaces';
 import { insertTags } from "../utils/misc.utils";
 import { v4 as uuidv4 } from 'uuid';
 import path, { dirname, join } from 'path';
@@ -159,6 +159,46 @@ export const getChallengeLeaderboard = async (req: express.Request, res: express
         data: {
             userRank: userRank + 1,
             leaderboard: leaderboard,
+        },
+    };
+
+    return res.json(jsonResponse);
+}
+
+export const getChallengeDetails = async (req: express.Request, res: express.Response) => {
+    const { challengeId } = req.params;
+
+    const challengeData = await prisma.challenge.findFirst({
+        where: {
+            challenge_id: challengeId,
+        },
+    });
+
+    if (!challengeData) {
+        throw new CustomError('Data not found');
+    }
+
+    const tags = await prisma.TagAssign.findMany({
+        where: {
+            challenge_id: challengeId,
+        },
+        include: {
+            Tag: true,
+        },
+    });
+
+    const tagList = tags.map((tag: Tagassign) => tag.Tag.tag_name.toLowerCase());
+
+    const jsonResponse: JsonResponse = {
+        success: true,
+        message: 'Challenge details fetched successfully',
+        data: {
+            challenge_id: challengeData.challenge_id,
+            challenge_title: challengeData.challenge_title,
+            repo_link: challengeData.repo_link,
+            points: challengeData.points,
+            total_test_case: challengeData.total_test_case,
+            tags: tagList,
         },
     };
 
