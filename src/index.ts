@@ -40,7 +40,7 @@ app.get('/getUserData', getUserData);
 
 app.post('/addUser', addUserData);
 
-app.get('/getChallengeLeaderboard', getChallengeLeaderboard)
+app.post('/getChallengeLeaderboard', getChallengeLeaderboard)
 
 app.post('/submitChallenge', authMiddleware, roleMiddleware, upload.single('file'), submitChallege);
 
