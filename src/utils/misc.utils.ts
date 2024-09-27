@@ -151,6 +151,17 @@ async function executeRunFileCommands(runFilePath: string): Promise<void> {
     }
 }
 
+const deleteChallengeFolder = async (challengeId: string) => {
+    const challengeFolder = path.join(__dirname, `../../../quan-c-runner/challenges/${challengeId}`);
+    try {
+        await fs.promises.rm(challengeFolder, { recursive: true });
+    } 
+    catch (error) {
+        // console.error('Error deleting challenge folder:', error);
+        return
+    }
+}
+
 export {
     delay,
     execAsync,
@@ -158,5 +169,6 @@ export {
     insertTags,
     extractZip,
     executeRunFileCommands,
-    updateTags
+    updateTags,
+    deleteChallengeFolder
 }

@@ -1,7 +1,7 @@
 import express from "express";
 import CustomError from '../utils/error.utils';
 import { JsonResponse, Challenge, PaginationData, UserRank, Tag, Tagassign } from '../interfaces';
-import { insertTags, updateTags } from "../utils/misc.utils";
+import { deleteChallengeFolder, insertTags, updateTags } from "../utils/misc.utils";
 import { v4 as uuidv4 } from 'uuid';
 import path, { dirname, join } from 'path';
 import fs, { createWriteStream, mkdir, readFileSync } from 'fs';
@@ -250,6 +250,57 @@ export const updateChallenge = async (req: express.Request, res: express.Respons
     const jsonResponse: JsonResponse = {
         success: true,
         message: 'Challenge updated successfully'
+    };
+
+    return res.json(jsonResponse);
+}
+
+export const deleteChallenge = async (req: express.Request, res: express.Response) => {
+    const body = req.body;
+    const challengeId: string = body.challengeId;
+
+    if (!challengeId) {
+        throw new CustomError('Challenge ID is required');
+    }
+
+    const challenge = await prisma.challenge.findFirst({
+        where: {
+            challenge_id: challengeId,
+        },
+    });
+
+    if (!challenge) {
+        throw new CustomError('Challenge not found');
+    }
+
+    await prisma.submission.deleteMany({
+        where: {
+            challenge_id: challengeId,
+        },
+    });
+
+    await prisma.tagAssign.deleteMany({
+        where: {
+            challenge_id: challengeId,
+        },
+    });
+
+    await prisma.challenge.delete({
+        where: {
+            challenge_id: challengeId,
+        },
+    });
+
+    try {
+        deleteChallengeFolder(challengeId);
+    }
+    catch (err) {
+        throw new CustomError('Failed to delete challenge folder');
+    }
+
+    const jsonResponse: JsonResponse = {
+        success: true,
+        message: 'Challenge deleted successfully',
     };
 
     return res.json(jsonResponse);
